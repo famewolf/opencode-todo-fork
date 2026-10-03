@@ -12,6 +12,15 @@ a TUI sidebar strip. Fork of `opencode-todolist-local` (MIT, upstream
 | `todoread` | tool | Reads the list back from this plugin's own storage key. |
 | `/todo` | command | Prints the session list on demand (`Todo [done/total]`, completed marked, in-progress item named as current task). |
 
+Sample output (live):
+
+```
+Todo [0/2] - 2 open
+Current task: Verify /todo shows this list after server restart
+  DOING 1. Verify /todo shows this list after server restart
+  OPEN  2. Report round-trip result to user
+```
+
 ## How `/todo` reads the list
 
 The session **message log** is the real store: every `todowrite` call persists
