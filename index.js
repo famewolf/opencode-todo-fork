@@ -4,7 +4,8 @@
 // (see tui/index.js, built from src/tui.tsx).
 //
 // Kept from -local: session-scoped `ctx.storage` key `todos/${sessionID}`
-// (same key auto-resume reads — no changes needed there), todowrite/todoread
+// (same key STRING auto-resume reads, but a different NAMESPACE —
+// `ctx.storage` is per-plugin, so same key ≠ same data), todowrite/todoread
 // with identical schemas, best-effort OpenChamber context.json mirror on
 // todowrite only, and NO per-request `ctx.session.hook("context")` injection.
 
@@ -182,8 +183,11 @@ export function normalizeTodoList(input) {
  * exist" stays distinguishable from "we could not look". That distinction is
  * what keeps this diagnosable instead of silently reporting [0/0].
  *
- * Source 3 (`ctx.storage`) is a FALLBACK ONLY. It is a v1-shaped key that
- * nothing in v2 writes, so it always misses.
+ * Source 3 (`ctx.storage`) is a FALLBACK ONLY. It is namespaced per plugin
+ * (`storage/plugin/<PLUGIN-ID>/<key>.json`), so it only sees lists THIS
+ * plugin wrote — a list written by any other todo tool lives in that tool's
+ * namespace and still misses here. The message log above is the only store
+ * every writer agrees on.
  */
 export async function todosFromMessageSources(ctx, sessionID) {
   try {
@@ -237,8 +241,9 @@ export function serverBaseUrls(cmdline) {
   // Env vars alone are NOT enough under OpenChamber. The server is spawned as
   // `opencode serve --hostname 127.0.0.1 --port <n>` and exports no port env var,
   // so the candidate list above comes back EMPTY, this HTTP source is never
-  // attempted, and the caller silently falls through to the dead ctx.storage
-  // key - which is exactly how /todo came to print [0/0] with 14 todos in the
+  // attempted, and the caller silently falls through to the `ctx.storage`
+  // fallback — which, namespaced per plugin, misses lists written by any
+  // other todo tool - which is exactly how /todo came to print [0/0] with 14 todos in the
   // message log. Same /proc/self/cmdline mechanism the prompt-polisher uses,
   // which is why its HTTP DELETE works against this same server.
   try {
@@ -430,7 +435,8 @@ const plugin = {
         description: TODO_COMMAND_DESCRIPTION,
         execute: async ({ sessionID, prompt, delivery }) => {
           // Read from the session message log first - see todosFromMessages().
-          // ctx.storage is the v1 fallback and is expected to miss.
+          // ctx.storage is the fallback: same-plugin writes only (per-plugin
+          // namespace), so it misses lists written by any other todo tool.
           let todos = await todosFromMessageSources(ctx, sessionID);
           if (!todos) {
             const record = parseTodoRecord(await ctx.storage?.get(storageKey(sessionID)));
